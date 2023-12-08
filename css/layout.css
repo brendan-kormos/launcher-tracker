@@ -15,26 +15,10 @@
   margin: 0 8px;
 }
 
-.center-children {
-  justify-items: center;
-}
-
-.column-container {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  margin: auto;
-}
-
 .table {
   margin: 0 auto;
   width: 100%;
   margin-bottom: calc(8px);
-}
-
-.half-width {
-  width: 50%;
 }
 
 #single-entry-container {
@@ -67,10 +51,6 @@
 
   .table {
     margin: 0 auto;
-    width: 100%;
-  }
-
-  .divider {
     width: 100%;
   }
 }

@@ -7,6 +7,7 @@ let data = {
   singleEntry: null,
   saves: {},
   cachedIDs: [],
+  cachedExtendedInfo:[],
   offset: 0,
   limit: 15,
   scrollPositions: {
@@ -23,7 +24,7 @@ function saveScrollPosition() {
 const oldData = localStorage.getItem(LOCAL_STORAGE_KEY);
 if (oldData) {
   const parsedOldData = JSON.parse(oldData);
-  if (parsedOldData.limit !== undefined && parsedOldData.limit === 15) {
+  if (parsedOldData.cachedExtendedInfo !== undefined) {
     // only load data if new feature is present
     data = parsedOldData;
   }

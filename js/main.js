@@ -2,20 +2,23 @@
 // https://lldev.thespacedevs.com/2.2.0/launcher/ID/
 const GET_TYPE = 'local';
 
-const $listEntry = document.querySelector('.list-entry').cloneNode(true);
+const $main = document.querySelector('main');
 
 const $homeContainer = document.querySelector('#home-container');
 const $savesContainer = $homeContainer.cloneNode(true);
 $savesContainer.id = 'saves-container';
+const $listEntry = document.querySelector('.list-entry').cloneNode(true);
+
 const $homeNavButton = document.querySelector('#nav-bar-home');
 const $savesNavButton = document.querySelector('#nav-bar-saves');
+
 const $singleEntry = document.querySelector('.single-entry');
 const $singleEntryImage = document.querySelector('.single-entry img');
-const root = document.querySelector(':root');
 const $singleEntryInfoContainer = document.querySelector(
   '.single-entry-info-container',
 );
 
+const root = document.querySelector(':root');
 const computedRoot = getComputedStyle(root);
 const header2FontSize = computedRoot.getPropertyValue('--header-2-font-size');
 const descriptionFontSize = computedRoot.getPropertyValue(
@@ -25,18 +28,17 @@ const descriptionFontSize = computedRoot.getPropertyValue(
 const $mainTableTemplate = document
   .querySelector('#main-table')
   .cloneNode(true);
-
 const $tableRowTemplate = document.querySelector('.table-row').cloneNode(true);
-
 const $saveButtonTemplate = document
   .querySelector('.save-button')
   .cloneNode(true);
-const $main = document.querySelector('main');
+
 $homeContainer.parentElement.append($savesContainer);
 document.querySelector('.list-entry').remove();
 document.querySelector('.table-row').remove();
 
 const main_Order = [
+  //serial related order
   'status',
   'flights',
   'attempted_landings',
@@ -45,6 +47,7 @@ const main_Order = [
   'last_launch_date',
 ];
 const launcherConfig_Order = [
+  //config related order
   'active',
   'reusable',
   'pending_launches',
@@ -60,8 +63,6 @@ const launcherConfig_Order = [
 
 // import singleEntryJSON from './currentSingleEntry.json' assert { type: 'json' };
 // import entries20JSON from './Entries_20.json' assert { type: 'json' };
-
-let singleEntryRequest = null;
 
 const views$ = {
   'single-entry-container': document.querySelector('#single-entry-container'),
@@ -82,6 +83,15 @@ function resetSingleEntryPage() {
   for (const child of Array.from($singleEntryInfoContainer.children)) {
     $singleEntryInfoContainer.removeChild(child);
   }
+}
+
+// nav bar text, this will pick one focused button, or in some cases, no focused buttons
+function newSelectedText($target) {
+  document.querySelectorAll('.nav-bar > a').forEach(function ($element) {
+    if ($element === $target) {
+      $element.classList.add('selected-text');
+    } else $element.classList.remove('selected-text');
+  });
 }
 
 function changeView(view, initial) {
@@ -105,8 +115,34 @@ function scrollTo(pos) {
   });
 }
 
+//formatting
+// humanize will convert strings displayed as "hell_world" to "Hello World"
+function humanize(str) {
+  let i,
+    frags = str.split('_');
+  for (i = 0; i < frags.length; i++) {
+    frags[i] = frags[i].charAt(0).toUpperCase() + frags[i].slice(1);
+  }
+  return frags.join(' ');
+}
+
+//check if string is in the right format to be humanized
+function isUTCDateFormat(str) {
+  const utcDatePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+  return utcDatePattern.test(str);
+}
+
+// humanizeDate will be locallized and shown with a date and time of day
+function humanizeDate(utcDateString) {
+  //date example: '2018-12-05T18:16:16Z';
+  const utcDate = new Date(utcDateString);
+  const localDateString = utcDate.toLocaleString(); // Use the default options
+  return localDateString;
+}
+
+// make ajax request for more entries
 let requestDebounce = false;
-function requestMoreEntries(callback) {
+function requestMoreEntries(callback) { // only callsback if requests succeeds
   if (requestDebounce) return;
   requestDebounce = true;
   setTimeout(() => {
@@ -139,51 +175,44 @@ function renderListEntry(entry) {
   return $clone;
 }
 
-const appendNodes = (dataEntry) => {
+// append nodes from stored data
+function appendNode(dataEntry) {
   if (!dataEntry) return;
   const $entry = renderListEntry(dataEntry);
   $homeContainer.append($entry);
   if (data.saves[dataEntry.id.toString()]) {
     setSaveIcon($entry.querySelector('.save-button-i'), true);
   }
-};
+}
 
-function appendNewEntries(response) {
+// append entries from http request into dom
+function handleNewEntries(response) {
   for (let i = 0; i < response.results.length; i++) {
     const dataEntry = response.results[i];
-
     data.cachedIDs[dataEntry.id] = dataEntry;
-    appendNodes(dataEntry);
+    appendNode(dataEntry);
   }
 }
 
-function initHomePage(retrieval) {
+// called once when website is opened
+function loadHomePage(retrieval) {
   newSelectedText($homeNavButton);
-
   if (retrieval === 'local' && data.cachedIDs.length > 0) {
     for (let i = 1; i < data.cachedIDs.length; i++) {
       const dataEntry = data.cachedIDs[i];
-      appendNodes(dataEntry);
+      appendNode(dataEntry);
     }
   } else {
     requestMoreEntries(function (response) {
       //runs on load
-      appendNewEntries(response);
+      handleNewEntries(response);
     });
   }
 }
 
-function initSavesPage(retrieval) {
-  const appendNodes = (dataEntry) => {
-    const $entry = renderListEntry(dataEntry);
-    $homeContainer.append($entry);
-    if (data.saves[dataEntry.id.toString()]) {
-      setSaveIcon($entry.querySelector('.save-button-i'), true);
-    }
-  };
-
+// called every time the saves container is opened
+function loadSavesPage() {
   const $container = views$['saves-container'];
-
   let index = 0;
   for (const child of Array.from($container.children)) {
     $container.removeChild(child);
@@ -198,23 +227,7 @@ function initSavesPage(retrieval) {
   newSelectedText($savesNavButton);
 }
 
-function humanize(str) {
-  let i,
-    frags = str.split('_');
-  for (i = 0; i < frags.length; i++) {
-    frags[i] = frags[i].charAt(0).toUpperCase() + frags[i].slice(1);
-  }
-  return frags.join(' ');
-}
-
-function newSelectedText($target) {
-  document.querySelectorAll('.nav-bar > a').forEach(function ($element) {
-    if ($element === $target) {
-      $element.classList.add('selected-text');
-    } else $element.classList.remove('selected-text');
-  });
-}
-
+// check if there are any changes to the entries' save status
 function onOpenHomePage(event) {
   const $target = event.target;
   const $container = views$['home-container'];
@@ -227,23 +240,22 @@ function onOpenHomePage(event) {
       );
     }
   }
-
   newSelectedText($target);
   if (data.view !== 'home-container') changeView('home-container');
 }
 
 function onOpenSavesPage(event) {
-  initSavesPage(GET_TYPE);
+  loadSavesPage(GET_TYPE);
   if (data.view !== 'saves-container') changeView('saves-container');
 }
 
-function createDivider() {
+function renderDivider() {
   const $newDivider = document.createElement('div');
   $newDivider.classList.add('divider');
   return $newDivider;
 }
 
-function createTableRow(text1, text2) {
+function renderTableRow(text1, text2) {
   const $newRow = $tableRowTemplate.cloneNode(true);
   $newRow.children[0].textContent = text1;
   $newRow.children[1].textContent = text2;
@@ -251,26 +263,8 @@ function createTableRow(text1, text2) {
   return $newRow;
 }
 
-function isUTCDateFormat(str) {
-  const utcDatePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
-  return utcDatePattern.test(str);
-}
-
-function humanizeDate(utcDateString) {
-  //date example: '2018-12-05T18:16:16Z';
-  const utcDate = new Date(utcDateString);
-  const localDateString = utcDate.toLocaleString(); // Use the default options
-  return localDateString;
-}
-
-function createTextEntryForSingle(text) {
-  const $newTextDiv = document.createElement('p');
-  $newTextDiv.textContent = text;
-  return $newTextDiv;
-}
-
-function loadSingleEntry(entry) {
-  newSelectedText();
+function loadSingleEntryPage(entry) {
+  newSelectedText(); // set selected text to none
   scrollTo(0);
   data.singleEntry = entry;
 
@@ -294,7 +288,7 @@ function loadSingleEntry(entry) {
   setSaveIcon($saveButton.children[0], !!data.saves[entry.id]);
   $newHeader2.append($saveButton);
 
-  let $divider = createDivider();
+  let $divider = renderDivider();
   $singleEntryInfoContainer.append($divider);
 
   const $serialHeader = document.createElement('h3');
@@ -308,7 +302,7 @@ function loadSingleEntry(entry) {
     const formatted = isUTCDateFormat(entry[value])
       ? humanizeDate(entry[value])
       : entry[value];
-    const $tr = createTableRow(
+    const $tr = renderTableRow(
       humanize(value),
       formatted === '' || formatted === undefined ? 'N/A' : formatted,
     );
@@ -324,7 +318,10 @@ function loadSingleEntry(entry) {
     const formatted = isUTCDateFormat(entry.launcher_config[value])
       ? humanizeDate(entry[value])
       : entry.launcher_config[value];
-    const $tr = createTableRow(humanize(value), (formatted === '' || formatted === undefined) ? "N/A" : formatted );
+    const $tr = renderTableRow(
+      humanize(value),
+      formatted === '' || formatted === undefined ? 'N/A' : formatted,
+    );
     $launcherConfigTbody.append($tr);
   });
   $singleEntryInfoContainer.append($launcherConfigTable);
@@ -347,6 +344,9 @@ function setSaveIcon($element, save) {
   $element.classList.replace('fa-solid', 'fa-regular');
   $element.classList.replace('unsave-button-i', 'save-button-i');
 }
+
+//declare variable so that xhr request can abort if another request is made before original is complete
+let singleEntryRequest = null;
 
 function onListEntryClicked(event) {
   const $target = event.target;
@@ -373,19 +373,19 @@ function onListEntryClicked(event) {
     singleEntryRequest.abort();
     singleEntryRequest = null;
   }
-
-  if (GET_TYPE === 'local' && data.cachedIDs[$listEntry.dataset.id]) {
+  const id = $listEntry.dataset.id;
+  if (GET_TYPE === 'local' && data.cachedExtendedInfo[id]) {
     //prefer local
-    loadSingleEntry(data.cachedIDs[$listEntry.dataset.id]);
+    loadSingleEntryPage(data.cachedExtendedInfo[id]);
   } else {
     //request
-    const xhr = ajaxGET(
-      `https://lldev.thespacedevs.com/2.2.0/launcher/${$listEntry.dataset.id}/`,
-    );
+    const xhr = ajaxGET(`https://lldev.thespacedevs.com/2.2.0/launcher/${id}/`);
     xhr.addEventListener('load', function () {
       const response = xhr.response;
-
-      loadSingleEntry(response);
+      if (xhr.status == '200') {
+        data.cachedExtendedInfo[id] = response;
+        loadSingleEntryPage(response);
+      }
     });
     singleEntryRequest = xhr;
   }
@@ -410,19 +410,7 @@ function onSingleEntryContainerClicked(event) {
   }
 }
 
-function isWindowScrollable() {
-  const windowHeight =
-    window.innerHeight || document.documentElement.clientHeight;
-  const documentHeight = Math.max(
-    document.body.scrollHeight,
-    document.body.offsetHeight,
-    document.documentElement.clientHeight,
-    document.documentElement.scrollHeight,
-    document.documentElement.offsetHeight,
-  );
-
-  return documentHeight > windowHeight;
-}
+// scroll to load more related functions
 
 function isBottomOfPage() {
   const scrollTop = window.scrollY || window.pageYOffset;
@@ -433,48 +421,50 @@ function isBottomOfPage() {
 
 let scrollIntervalTimer = null;
 function handleScrollAttempt(event) {
-  if (event.deltaY < 0 || !isBottomOfPage()) return;
-
+  if (event.deltaY < 0 || !isBottomOfPage() ) return;
   if (requestDebounce && scrollIntervalTimer === null) {
+    // if request on cooldown, queue up to request afterwards
     scrollIntervalTimer = setInterval(() => {
       clearInterval(scrollIntervalTimer);
       scrollIntervalTimer = null;
       requestMoreEntries(function (response) {
-        appendNewEntries(response);
+        handleNewEntries(response);
       });
     }, 2 * 1000);
     return;
   }
   requestMoreEntries(function (response) {
-    appendNewEntries(response);
+    handleNewEntries(response);
   });
 }
 
-window.addEventListener('wheel', handleScrollAttempt);
-$homeNavButton.addEventListener('click', onOpenHomePage);
-$savesNavButton.addEventListener('click', onOpenSavesPage);
-
-views$['home-container'].addEventListener('click', onListEntryClicked);
-views$['single-entry-container'].addEventListener(
-  'click',
-  onSingleEntryContainerClicked,
-);
-views$['saves-container'].addEventListener('click', onListEntryClicked);
-
-initSavesPage(GET_TYPE);
+//hide all components in main
 for (const child of $main.children) {
   child.classList.add('hidden');
 }
 
-initHomePage(GET_TYPE);
-switch (data.view) {
-  case 'single-entry-container':
-    loadSingleEntry(data.singleEntry);
-    break;
-  case 'saves-container':
-    initSavesPage(GET_TYPE);
-    break;
-}
+window.addEventListener('load', function () {
+  window.addEventListener('wheel', handleScrollAttempt); // only works for mouse wheel, this is for if the page can't scroll, scroll won't be triggered
+  window.addEventListener('scroll', handleScrollAttempt); // works on mobile, mobile should never have enough empty space to not trigger scroll
+  $homeNavButton.addEventListener('click', onOpenHomePage);
+  $savesNavButton.addEventListener('click', onOpenSavesPage);
 
-changeView(data.view, true);
-scrollTo(data.scrollPositions[data.view]);
+  views$['home-container'].addEventListener('click', onListEntryClicked);
+  views$['single-entry-container'].addEventListener(
+    'click',
+    onSingleEntryContainerClicked,
+  );
+  views$['saves-container'].addEventListener('click', onListEntryClicked);
+
+  loadHomePage(GET_TYPE);
+  switch (data.view) {
+    case 'single-entry-container':
+      loadSingleEntryPage(data.singleEntry);
+      break;
+    case 'saves-container':
+      loadSavesPage(GET_TYPE);
+      break;
+  }
+  changeView(data.view, true);
+  scrollTo(data.scrollPositions[data.view]);
+});
